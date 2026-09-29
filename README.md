@@ -5,4 +5,4 @@
 - 데모: https://bill-copilot.vercel.app/?example (예시 입력은 가상 데이터)
 - 스펙: [SPEC.md](SPEC.md) · 테스트: `npm test` (node --test, 16개) · 2026-09 착수 v0.1(실고객 데이터 없음, 예시는 가상)
 - 계층: `src/domain`(순수 계산) ← `src/application`(성적표) ← `src/adapters`(화면)
-- 출처: 한전 전기요금표 일반용(갑)Ⅰ 저압(2023-11-09 시행) · Open-Meteo Historical Weather(CC BY 4.0) · 한전 소상공인 고효율기기 지원사업(2026)
+- 출처: 한전 전기요금표 일반용(갑)Ⅰ 저압(2023-05-16 시행) · Open-Meteo Historical Weather(CC BY 4.0) · 한전 소상공인 고효율기기 지원사업(2026)

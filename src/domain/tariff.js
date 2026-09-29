@@ -1,4 +1,4 @@
-// 한전 일반용 전력(갑)Ⅰ 저압 — cyber.kepco.co.kr 전기요금표(2023-11-09 시행), 2026-09-29 조회
+// 한전 일반용 전력(갑)Ⅰ 저압 — cyber.kepco.co.kr 전기요금표(2023-05-16 시행), 2026-09-29 조회
 export const TARIFF_GEN_GAP1_LOW = Object.freeze({
   name: '일반용(갑)Ⅰ 저압',
   basicPerKw: 6160,
