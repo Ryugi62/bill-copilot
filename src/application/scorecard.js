@@ -3,12 +3,14 @@ import { appliedKw, prescribeContract, DEMAND_METER_MIN_KW } from '../domain/con
 import { fitBaseline } from '../domain/baseline.js';
 import { equipmentPayback } from '../domain/equipment.js';
 
+export const PAYBACK_MAX_YEARS = 7; // 이보다 길면 교체 처방을 내지 않는다(설비 수명 대비)
+
 /**
  * 성적표 조립. input = { contractKw, bills:[{ym:'2025-09', kwh, peakKw?}], degreeDays:{'2025-09':{hdd,cdd}}, aircon?:{priceKrw, efficiencyGain} }
  * efficiencyGain(교체 시 냉방 전력 절감률)은 사용자가 넣는 가정값 — 기본값 없음(없으면 교체 처방은 계산하지 않는다).
  */
 export function buildScorecard(input) {
-  const { contractKw, bills, degreeDays, aircon } = input;
+  const { contractKw, bills, degreeDays, aircon, installedKw } = input;
   const rows = bills.map(b => {
     const month = Number(b.ym.slice(5, 7));
     const d = degreeDays[b.ym];
@@ -25,8 +27,8 @@ export function buildScorecard(input) {
 
   const prescriptions = [];
   if (contractKw < DEMAND_METER_MIN_KW) {
-    const c = prescribeContract({ contractKw, months: rows });
-    prescriptions.push({ kind: 'contract', title: '계약전력 적정화', annualSavingKrw: c.annualSavingKrw, detail: c.note, data: c });
+    const c = prescribeContract({ contractKw, months: rows, installedKw });
+    prescriptions.push({ kind: 'contract', title: c.confirmed ? '계약전력 감소 신청' : '계약전력 점검(과계약 의심)', upperBound: !c.confirmed, annualSavingKrw: c.annualSavingKrw, detail: c.note, data: c });
   } else {
     const a = appliedKw({ contractKw, peaks, billMonth: 9 });
     prescriptions.push({ kind: 'peak', title: '피크(최대수요) 관리', annualSavingKrw: Math.round(a * 0.1 * 6160 * 12),
@@ -36,8 +38,9 @@ export function buildScorecard(input) {
     const coolingKwh = model.c * rows.reduce((s, r) => s + r.cdd, 0);
     const saveKwh = coolingKwh * aircon.efficiencyGain;
     const p = equipmentPayback({ priceKrw: aircon.priceKrw, annualSavingKwh: saveKwh, unitPrice: unitPriceOf(8), kind: 'aircon' });
-    prescriptions.push({ kind: 'aircon', title: '냉방기 1등급 교체(한전 40% 지원)', annualSavingKrw: p.annualSavingKrw,
-      detail: `냉방분 연 ${Math.round(coolingKwh).toLocaleString('ko-KR')}kWh × 개선 ${Math.round(aircon.efficiencyGain * 100)}%(가정) → 지원금 ${p.subsidyKrw.toLocaleString('ko-KR')}원, 회수 ${p.paybackYears}년`, data: p });
+    const worth = p.paybackYears <= PAYBACK_MAX_YEARS;
+    prescriptions.push({ kind: 'aircon', title: worth ? '냉방기 1등급 교체(한전 40% 지원)' : '냉방기 교체 보류', annualSavingKrw: worth ? p.annualSavingKrw : null,
+      detail: `냉방분 연 ${Math.round(coolingKwh).toLocaleString('ko-KR')}kWh × 개선 ${Math.round(aircon.efficiencyGain * 100)}%(가정) → 지원금 ${p.subsidyKrw.toLocaleString('ko-KR')}원, 회수 ${p.paybackYears}년` + (worth ? '' : ` — ${PAYBACK_MAX_YEARS}년 초과라 지금 교체는 손해, 고장·노후 교체 시점에만 1등급 선택`), data: p });
   }
   if (model.verdict === 'ok') {
     prescriptions.push({ kind: 'base', title: '기저부하 점검', annualSavingKrw: null,

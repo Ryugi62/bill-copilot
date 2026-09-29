@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { energyCharge, basicCharge, seasonOf, TARIFF_GEN_GAP1_LOW } from '../src/domain/tariff.js';
 import { appliedKw, prescribeContract } from '../src/domain/contract.js';
-import { fitBaseline, verifySavings } from '../src/domain/baseline.js';
+import { fitBaseline, verifySavings, detectAnomalies } from '../src/domain/baseline.js';
 import { equipmentPayback } from '../src/domain/equipment.js';
 
 test('AC-1 전력량요금 여름 1,000kWh = 132,400원', () => {
@@ -31,7 +31,18 @@ test('AC-3 20kW 미만 계약전력 하향 처방', () => {
   assert.equal(r.recommendedKw, 6);
   assert.equal(r.annualSavingKrw, 9 * 6160 * 12);
   assert.equal(r.overuseMonths.length, 0);
+  assert.equal(r.confirmed, false);
+  assert.match(r.note, /과계약 의심/);
+});
+
+test('AC-3b 가동 설비 합계를 넣으면 그 아래로는 권고하지 않는다(저압 계약 = 사용설비 합계)', () => {
+  const months = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, kwh: i === 7 ? 2000 : 1200 }));
+  const r = prescribeContract({ contractKw: 15, months, installedKw: 11 });
+  assert.equal(r.recommendedKw, 11);
+  assert.equal(r.annualSavingKrw, 4 * 6160 * 12);
+  assert.equal(r.confirmed, true);
   assert.match(r.note, /1년/);
+  assert.match(r.note, /시설부담금/);
 });
 
 test('AC-4 450시간 초과 위험 경고', () => {
@@ -83,4 +94,14 @@ test('AC-8 고효율기기 회수기간(한전 40%, 한도 160만 원)', () => {
   assert.equal(r.paybackYears, 11.3);
   const r2 = equipmentPayback({ priceKrw: 5_000_000, annualSavingKwh: 3000, unitPrice: 132.4, kind: 'fridge' });
   assert.equal(r2.subsidyKrw, 1_600_000);
+});
+
+test('AC-9 이상 사용 감지: 기준선보다 크게 튄 달만 잡는다', () => {
+  const noise = [0.02, -0.02, 0.01, -0.01, 0.02, -0.02, 0.01, -0.01, 0.02, -0.02, 0.01, -0.01];
+  const rows = dd.map((d, i) => ({ ...d, ym: `2025-${String(d.month).padStart(2, '0')}`, kwh: (1000 + 2 * d.hdd + 5 * d.cdd) * (1 + noise[i]) }));
+  const m = fitBaseline(rows);
+  const post = [{ ...dd[7], ym: '2026-08', kwh: 1.25 * (1000 + 5 * 150) }, { ...dd[8], ym: '2026-09', kwh: 1000 + 5 * 60 }];
+  const a = detectAnomalies(m, post);
+  assert.equal(a.length, 1);
+  assert.equal(a[0].ym, '2026-08');
 });

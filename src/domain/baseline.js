@@ -51,7 +51,7 @@ export function fitBaseline(rows) {
   const shares = { base: base / modeled, heating: heating / modeled, cooling: cooling / modeled };
   const ok = cvrmse <= CVRMSE_MAX && Math.abs(nmbe) <= NMBE_MAX;
   return {
-    ...coef, terms, r2: sst > 0 ? 1 - sse / sst : 1, cvrmse, nmbe, shares, total, predict,
+    ...coef, terms, n, meanKwh: mean, r2: sst > 0 ? 1 - sse / sst : 1, cvrmse, nmbe, shares, total, predict,
     verdict: ok ? 'ok' : 'hold',
     reason: ok ? '' : `CV(RMSE) ${(cvrmse * 100).toFixed(1)}%·NMBE ${(nmbe * 100).toFixed(1)}% — ASHRAE G14 월 기준(15%·±5%) 미달, 판정 보류`,
   };
@@ -64,4 +64,14 @@ export function verifySavings(model, postRows) {
   const actual = postRows.reduce((s, r) => s + r.kwh, 0);
   const savingKwh = predicted - actual;
   return { verdict: 'ok', predicted, actual, savingKwh, savingRate: savingKwh / predicted };
+}
+
+/** 이상 사용 감지(구독의 반복 가치): 기준선 예측보다 k×RMSE 넘게 많이 쓴 달 → 설비 고장·누전·운영 변화 점검 신호. */
+export function detectAnomalies(model, rows, k = 2) {
+  if (!model || model.verdict !== 'ok') return [];
+  const n = model.n ?? 12, p = 1 + (model.terms?.length ?? 2);
+  const rmse = model.cvrmse * model.meanKwh;
+  return rows.map(r => ({ ym: r.ym, month: r.month, actual: r.kwh, expected: model.predict(r), excess: r.kwh - model.predict(r) }))
+    .filter(x => x.excess > k * rmse)
+    .map(x => ({ ...x, excessRate: x.excess / x.expected }));
 }

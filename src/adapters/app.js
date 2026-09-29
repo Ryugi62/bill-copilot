@@ -1,5 +1,5 @@
 import { buildScorecard } from '../application/scorecard.js';
-import { verifySavings } from '../domain/baseline.js';
+import { verifySavings, detectAnomalies } from '../domain/baseline.js';
 import { EXAMPLE } from '../../data/example.js';
 
 const $ = id => document.getElementById(id);
@@ -26,7 +26,7 @@ function run() {
   const city = $('city').value;
   let sc;
   try {
-    sc = buildScorecard({ contractKw: Number($('contract').value), bills: readBills(), degreeDays: DD.cities[city],
+    const inst = $('installed').value; sc = buildScorecard({ contractKw: Number($('contract').value), installedKw: inst === '' ? undefined : Number(inst), bills: readBills(), degreeDays: DD.cities[city],
       aircon: { priceKrw: Number($('acPrice').value), efficiencyGain: Number($('acGain').value) } });
   } catch (e) { alert(e.message); return; }
   last = sc; $('out').hidden = false;
@@ -41,7 +41,7 @@ function run() {
     $('bar').innerHTML = seg.map(([k, s, c]) => `<div style="width:${(s * 100).toFixed(1)}%;background:${c}">${s > 0.07 ? `${k} ${Math.round(s * 100)}%` : ''}</div>`).join('');
     $('fit').textContent = `기상 보정 모델: 월 사용량 = ${Math.round(m.a)} + ${m.h.toFixed(2)}×난방도일 + ${m.c.toFixed(2)}×냉방도일 · R² ${m.r2.toFixed(2)} · CV(RMSE) ${(m.cvrmse * 100).toFixed(1)}% · NMBE ${(m.nmbe * 100).toFixed(1)}%`;
   } else { $('bar').innerHTML = ''; $('fit').textContent = m.reason; }
-  $('rx').innerHTML = sc.prescriptions.map(p => `<div class="rx"><h3>${p.title} ${p.annualSavingKrw ? `<span class="won">연 ${won(p.annualSavingKrw)}</span>` : ''}</h3><div>${p.detail}</div></div>`).join('');
+  $('rx').innerHTML = sc.prescriptions.map(p => `<div class="rx"><h3>${p.title} ${p.annualSavingKrw ? `<span class="won">연 ${p.upperBound ? '최대 ' : ''}${won(p.annualSavingKrw)}</span>` : ''}</h3><div>${p.detail}</div></div>`).join('');
   renderPost(nextMonths(sc.rows.at(-1).ym, 3));
 }
 function nextMonths(ym, n) { let [y, m] = ym.split('-').map(Number); const o = []; for (let i = 0; i < n; i++) { m++; if (m > 12) { m = 1; y++; } o.push(`${y}-${String(m).padStart(2, '0')}`); } return o; }
@@ -55,6 +55,8 @@ function verify() {
   $('verifyOut').innerHTML = v.verdict === 'ok'
     ? `기온 보정 예측 ${Math.round(v.predicted).toLocaleString('ko-KR')}kWh 대비 실측 ${Math.round(v.actual).toLocaleString('ko-KR')}kWh → <b>절감 ${(v.savingRate * 100).toFixed(1)}%</b>`
     : `<span class="badge hold">판정 보류</span> ${v.reason}`;
+  const an = detectAnomalies(last.model, rows.map(r => ({ ...r, month: Number(r.ym.slice(5, 7)) })));
+  $('verifyOut').innerHTML += an.length ? `<br>이상 사용 감지: ${an.map(x => `${x.ym} 예측보다 ${Math.round(x.excessRate * 100)}% 많음`).join(', ')} — 설비 고장·누전·운영 변화 점검` : '<br>이상 사용 감지: 없음';
 }
 
 async function init() {

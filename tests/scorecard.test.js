@@ -16,6 +16,9 @@ test('예시 카페(창원) 성적표: 분해 ok · 계약전력 처방 · 냉�
   assert.ok(sc.bill.total > sc.bill.basic);
   const a = sc.prescriptions.find(p => p.kind === 'aircon');
   assert.ok(a.data.subsidyKrw <= 1_600_000);
+  // 회수 7년 초과면 절감액을 합계에 넣지 않고 보류로 표시
+  if (a.data.paybackYears > 7) { assert.equal(a.annualSavingKrw, null); assert.match(a.title, /보류/); }
+  assert.equal(c.upperBound, true); // 가동 설비 합계를 모르면 상한 표시
 });
 
 test('기상 자료 없는 달이면 오류', () => {
