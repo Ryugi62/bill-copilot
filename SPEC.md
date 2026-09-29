@@ -41,4 +41,4 @@
 - AC-8 회수기간: Given 에어컨 300만 원(부가세 제외)·연 1,200kWh 절감·단가 132.4, Then 지원금 120만 원, 회수 11.3년; 한도 초과 시 160만 원.
 
 ## 6. 레이어
-`src/domain`(순수 계산) ← `src/application`(성적표 조립) ← `src/adapters`(DOM·fetch) · `public/`(정적 페이지).
+`src/domain`(순수 계산) ← `src/application`(성적표 조립) ← `src/adapters`(DOM·fetch) · `index.html`·`data/`(정적 페이지·기상/예시 데이터).

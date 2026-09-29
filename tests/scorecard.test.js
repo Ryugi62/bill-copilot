@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildScorecard } from '../src/application/scorecard.js';
-import { EXAMPLE } from '../public/example.js';
+import { EXAMPLE } from '../data/example.js';
 
 const DD = JSON.parse(readFileSync(new URL('../data/degree-days.json', import.meta.url)));
 

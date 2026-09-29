@@ -1,6 +1,6 @@
 import { buildScorecard } from '../application/scorecard.js';
 import { verifySavings } from '../domain/baseline.js';
-import { EXAMPLE } from '../../public/example.js';
+import { EXAMPLE } from '../../data/example.js';
 
 const $ = id => document.getElementById(id);
 const won = n => `${Math.round(n).toLocaleString('ko-KR')}원`;
