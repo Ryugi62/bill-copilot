@@ -32,7 +32,7 @@ export function buildScorecard(input) {
   const prescriptions = [];
   if (contractKw < DEMAND_METER_MIN_KW) {
     const c = prescribeContract({ contractKw, months: rows, installedKw });
-    prescriptions.push({ kind: 'contract', title: c.confirmed ? '계약전력 감소 신청' : '계약전력 점검(과계약 의심)', upperBound: !c.confirmed, annualSavingKrw: c.annualSavingKrw, detail: c.note, data: c });
+    prescriptions.push({ kind: 'contract', title: c.confirmed ? '계약전력 감소 신청' : '계약전력 점검', upperBound: !c.confirmed, annualSavingKrw: c.annualSavingKrw, detail: c.note, data: c });
   } else {
     const a = appliedKw({ contractKw, peaks, billMonth: 9 });
     prescriptions.push({ kind: 'peak', title: '피크(최대수요) 관리(가정: 10% 저감)', upperBound: true, annualSavingKrw: Math.round(a * 0.1 * 6160 * 12),
