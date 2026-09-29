@@ -13,7 +13,11 @@ test('예시 카페(창원) 성적표: 분해 ok · 계약전력 처방 · 냉�
   assert.ok(sc.model.shares.cooling > 0.1);
   const c = sc.prescriptions.find(p => p.kind === 'contract');
   assert.ok(c.annualSavingKrw > 0);
-  assert.ok(sc.bill.total > sc.bill.basic);
+  assert.ok(sc.bill.claim.total > sc.bill.total);
+  assert.equal(sc.totals.confirmedKrw, 0); // 설비 목록 없으면 확정 0
+  assert.ok(sc.totals.upperKrw > 0);
+  const base = sc.prescriptions.find(p => p.kind === 'base');
+  assert.ok(base.data.tco2 > 0);
   const a = sc.prescriptions.find(p => p.kind === 'aircon');
   assert.ok(a.data.subsidyKrw <= 1_600_000);
   // 회수 7년 초과면 절감액을 합계에 넣지 않고 보류로 표시

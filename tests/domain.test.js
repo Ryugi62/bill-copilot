@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { energyCharge, basicCharge, seasonOf, TARIFF_GEN_GAP1_LOW } from '../src/domain/tariff.js';
+import { energyCharge, basicCharge, seasonOf, TARIFF_GEN_GAP1_LOW, billEstimate } from '../src/domain/tariff.js';
 import { appliedKw, prescribeContract } from '../src/domain/contract.js';
 import { fitBaseline, verifySavings, detectAnomalies, fractionalSavingsUncertainty } from '../src/domain/baseline.js';
 import { equipmentPayback } from '../src/domain/equipment.js';
@@ -118,4 +118,12 @@ test('AC-9 이상 사용 감지: 기준선보다 크게 튄 달만 잡는다', (
   const a = detectAnomalies(m, post);
   assert.equal(a.length, 1);
   assert.equal(a[0].ym, '2026-08');
+});
+
+test('AC-11 청구 추정: 기후환경 9·연료비 5원/kWh, 기금 2.7%(10원 미만 절사), 부가세 10%', () => {
+  const b = billEstimate({ basic: 61600, energy: 91900, kwh: 1000 });
+  assert.equal(b.sub, 61600 + 91900 + 14000);
+  assert.equal(b.fund, Math.floor(167500 * 0.027 / 10) * 10);
+  assert.equal(b.vat, 16750);
+  assert.equal(b.total, b.sub + b.fund + b.vat);
 });

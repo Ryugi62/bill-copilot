@@ -55,7 +55,11 @@ export function fitBaseline(rows, { heatingBases = [14, 16, 18], coolingBases = 
   const combos = multi ? heatingBases.flatMap(h => coolingBases.map(c => [h, c])) : [[18, 24]];
   const fits = combos.map(([h, c]) => fitAt(rows, h, c)).filter(Boolean);
   if (!fits.length) return { verdict: 'hold', reason: '회귀 불가(입력 부족)' };
-  const m = fits.reduce((best, f) => (f.cvrmse < best.cvrmse ? f : best));
+  let m = fits.reduce((best, f) => (f.cvrmse < best.cvrmse ? f : best));
+  if (combos.length > 1) { // 균형점 2개를 추정했으니 자유도에서 뺀다(5P 근사)
+    const pAdj = m.p + 2, sse = m.cvrmse ** 2 * m.meanKwh ** 2 * (m.n - m.p);
+    m = { ...m, p: pAdj, cvrmse: Math.sqrt(sse / Math.max(1, m.n - pAdj)) / m.meanKwh };
+  }
   const hb = m.bases.heating, cb = m.bases.cooling;
   const base = rows.reduce((s, r) => s + m.a * daysOf(r), 0);
   const heating = rows.reduce((s, r) => s + m.h * hddOf(r, hb), 0);
