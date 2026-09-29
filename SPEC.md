@@ -20,7 +20,7 @@
 | 요금적용전력 | `appliedKw` | 기본요금을 매기는 kW. 약관 제68조 |
 | 도일 | `hdd`/`cdd` | 난방 기준 18℃, 냉방 기준 24℃ 일평균기온 차 합 |
 | 기준선 모델 | `BaselineModel` | kWh = a + h·HDD + c·CDD 월 회귀 |
-| 판정 보류 | `verdict: "hold"` | ASHRAE Guideline 14 월 단위 기준(CV(RMSE) ≤ 15%, |NMBE| ≤ 5%) 미달 |
+| 판정 보류 | `verdict: "hold"` | 기준선 CV(RMSE) > 20% 또는 절감 불확도 FSU > 50%(ASHRAE G14 Annex B 근사, 68%) |
 | 성적표 | `Scorecard` | 분해·처방·검증 결과 묶음 |
 
 ## 4. 규칙 (출처)
@@ -37,6 +37,9 @@
 - AC-4 초과 위험: Given 계약 5kW·월 2,400kWh, Then 초과 위험 경고(한도 2,250kWh).
 - AC-5 분해: Given 합성 데이터(a=1000, h=2, c=5, 잡음 0), Then 계수 ±1% 복원, verdict=ok.
 - AC-6 보류: Given 잡음이 큰 12개월, Then verdict=hold 와 사유.
+- AC-5b 균형점: 난방 14/16/18·냉방 20/22/24 중 CV(RMSE) 최소 조합 선택.
+- AC-9 이상 사용: 예측보다 2×RMSE 넘게 쓴 달만 표시.
+- AC-10 불확도: 잡음 큰 기준선의 작은 절감은 판정 보류.
 - AC-7 검증: Given 기준선 모델과 사후 3개월 실측(예측보다 10% 적게), Then 절감률 ≈10%.
 - AC-8 회수기간: Given 에어컨 300만 원(부가세 제외)·연 1,200kWh 절감·단가 132.4, Then 지원금 120만 원, 회수 11.3년; 한도 초과 시 160만 원.
 

@@ -39,7 +39,7 @@ function run() {
   if (m.verdict === 'ok') {
     const seg = [['기저', m.shares.base, '#4e5968'], ['난방', m.shares.heating, '#f04452'], ['냉방', m.shares.cooling, '#3182f6']];
     $('bar').innerHTML = seg.map(([k, s, c]) => `<div style="width:${(s * 100).toFixed(1)}%;background:${c}">${s > 0.07 ? `${k} ${Math.round(s * 100)}%` : ''}</div>`).join('');
-    $('fit').textContent = `기상 보정 모델: 월 사용량 = ${Math.round(m.a)} + ${m.h.toFixed(2)}×난방도일 + ${m.c.toFixed(2)}×냉방도일 · R² ${m.r2.toFixed(2)} · CV(RMSE) ${(m.cvrmse * 100).toFixed(1)}% · NMBE ${(m.nmbe * 100).toFixed(1)}%`;
+    $('fit').textContent = `기상 보정 모델(일평균): ${m.a.toFixed(1)}kWh/일 + ${m.h.toFixed(2)}×난방도일(${m.bases.heating}℃) + ${m.c.toFixed(2)}×냉방도일(${m.bases.cooling}℃) · R² ${m.r2.toFixed(2)} · CV(RMSE) ${(m.cvrmse * 100).toFixed(1)}%(기준 ≤20%)`;
   } else { $('bar').innerHTML = ''; $('fit').textContent = m.reason; }
   $('rx').innerHTML = sc.prescriptions.map(p => `<div class="rx"><h3>${p.title} ${p.annualSavingKrw ? `<span class="won">연 ${p.upperBound ? '최대 ' : ''}${won(p.annualSavingKrw)}</span>` : ''}</h3><div>${p.detail}</div></div>`).join('');
   renderPost(nextMonths(sc.rows.at(-1).ym, 3));
@@ -49,12 +49,12 @@ function nextMonths(ym, n) { let [y, m] = ym.split('-').map(Number); const o = [
 function verify() {
   if (!last) { $('verifyOut').textContent = '먼저 성적표를 만드세요.'; return; }
   const dd = DD.cities[$('city').value];
-  const rows = [...document.querySelectorAll('.pk')].filter(i => i.value !== '').map(i => ({ ym: i.dataset.ym, kwh: Number(i.value), ...(dd[i.dataset.ym] || {}) }));
+  const rows = [...document.querySelectorAll('.pk')].filter(i => i.value !== '').map(i => ({ ...(dd[i.dataset.ym] || {}), ym: i.dataset.ym, kwh: Number(i.value) }));
   if (!rows.length || rows.some(r => r.hdd == null)) { $('verifyOut').textContent = '해당 월의 기온 자료가 아직 없습니다(자료는 2026-08까지).'; return; }
   const v = verifySavings(last.model, rows);
   $('verifyOut').innerHTML = v.verdict === 'ok'
-    ? `기온 보정 예측 ${Math.round(v.predicted).toLocaleString('ko-KR')}kWh 대비 실측 ${Math.round(v.actual).toLocaleString('ko-KR')}kWh → <b>절감 ${(v.savingRate * 100).toFixed(1)}%</b>`
-    : `<span class="badge hold">판정 보류</span> ${v.reason}`;
+    ? `기온 보정 예측 ${Math.round(v.predicted).toLocaleString('ko-KR')}kWh 대비 실측 ${Math.round(v.actual).toLocaleString('ko-KR')}kWh → <b>절감 ${(v.savingRate * 100).toFixed(1)}%</b> (절감 불확도 ${Math.round(v.fsu * 100)}%, 기준 ≤50%)`
+    : `<span class="badge hold">판정 보류</span> ${v.predicted ? `예측 ${Math.round(v.predicted).toLocaleString('ko-KR')}kWh 대비 실측 ${Math.round(v.actual).toLocaleString('ko-KR')}kWh(점추정 ${(v.savingRate * 100).toFixed(1)}%) — ` : ''}${v.reason}`;
   const an = detectAnomalies(last.model, rows.map(r => ({ ...r, month: Number(r.ym.slice(5, 7)) })));
   $('verifyOut').innerHTML += an.length ? `<br>이상 사용 감지: ${an.map(x => `${x.ym} 예측보다 ${Math.round(x.excessRate * 100)}% 많음`).join(', ')} — 설비 고장·누전·운영 변화 점검` : '<br>이상 사용 감지: 없음';
 }

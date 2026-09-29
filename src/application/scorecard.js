@@ -15,7 +15,7 @@ export function buildScorecard(input) {
     const month = Number(b.ym.slice(5, 7));
     const d = degreeDays[b.ym];
     if (!d) throw new Error(`기상 자료 없음: ${b.ym}`);
-    return { ym: b.ym, month, kwh: b.kwh, peakKw: b.peakKw, hdd: d.hdd, cdd: d.cdd };
+    return { ...d, ym: b.ym, month, kwh: b.kwh, peakKw: b.peakKw };
   });
   const model = fitBaseline(rows);
   const peaks = rows.filter(r => r.peakKw != null).map(r => ({ month: r.month, peakKw: r.peakKw }));
@@ -35,7 +35,7 @@ export function buildScorecard(input) {
       detail: `요금적용전력 ${a}kW — 12·1·2·7·8·9월 15분 최대수요를 10% 낮추면 기본요금 연 ${Math.round(a * 0.1 * 6160 * 12).toLocaleString('ko-KR')}원`, data: { appliedKw: a } });
   }
   if (model.verdict === 'ok' && aircon && aircon.efficiencyGain > 0) {
-    const coolingKwh = model.c * rows.reduce((s, r) => s + r.cdd, 0);
+    const coolingKwh = model.coolingKwh;
     const saveKwh = coolingKwh * aircon.efficiencyGain;
     const p = equipmentPayback({ priceKrw: aircon.priceKrw, annualSavingKwh: saveKwh, unitPrice: unitPriceOf(8), kind: 'aircon' });
     const worth = p.paybackYears <= PAYBACK_MAX_YEARS;
@@ -44,7 +44,7 @@ export function buildScorecard(input) {
   }
   if (model.verdict === 'ok') {
     prescriptions.push({ kind: 'base', title: '기저부하 점검', annualSavingKrw: null,
-      detail: `기온과 무관한 기저 사용 월 ${Math.round(model.a).toLocaleString('ko-KR')}kWh(${Math.round(model.shares.base * 100)}%) — 영업시간 외 냉장·조명·대기전력 점검 대상` });
+      detail: `기온과 무관한 기저 사용 월 약 ${Math.round(model.a * 30.4).toLocaleString('ko-KR')}kWh(${Math.round(model.shares.base * 100)}%) — 영업시간 외 냉장·조명·대기전력 점검 대상` });
   }
   prescriptions.sort((x, y) => (y.annualSavingKrw ?? -1) - (x.annualSavingKrw ?? -1));
   return { rows, model, bill, prescriptions };

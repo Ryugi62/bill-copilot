@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { energyCharge, basicCharge, seasonOf, TARIFF_GEN_GAP1_LOW } from '../src/domain/tariff.js';
 import { appliedKw, prescribeContract } from '../src/domain/contract.js';
-import { fitBaseline, verifySavings, detectAnomalies } from '../src/domain/baseline.js';
+import { fitBaseline, verifySavings, detectAnomalies, fractionalSavingsUncertainty } from '../src/domain/baseline.js';
 import { equipmentPayback } from '../src/domain/equipment.js';
 
 test('AC-1 전력량요금 여름 1,000kWh = 132,400원', () => {
@@ -60,23 +60,37 @@ const dd = [ // 창원 2025 도일(난방18/냉방24) 근사 입력
   { month: 10, hdd: 40, cdd: 2 }, { month: 11, hdd: 220, cdd: 0 }, { month: 12, hdd: 420, cdd: 0 },
 ];
 
-test('AC-5 기상 보정 분해: 합성 데이터 계수 복원', () => {
+test('AC-5 기상 보정 분해: 합성 데이터 계수 복원(일수 정규화)', () => {
   const rows = dd.map(d => ({ ...d, kwh: 1000 + 2 * d.hdd + 5 * d.cdd }));
   const m = fitBaseline(rows);
-  assert.ok(Math.abs(m.a - 1000) < 10);
+  assert.ok(Math.abs(m.a * 30.4 - 1000) < 10);
   assert.ok(Math.abs(m.h - 2) < 0.02);
   assert.ok(Math.abs(m.c - 5) < 0.05);
   assert.equal(m.verdict, 'ok');
-  const tot = m.shares.base + m.shares.heating + m.shares.cooling;
-  assert.ok(Math.abs(tot - 1) < 1e-9);
+  assert.ok(Math.abs(m.shares.base + m.shares.heating + m.shares.cooling - 1) < 1e-9);
 });
 
+test('AC-5b 균형점 탐색: 냉방 22℃ 기준으로 만든 데이터면 22℃를 고른다', () => {
+  const rows = dd.map((d, i) => { const r = { month: d.month, days: 30, hdd14: d.hdd * 0.5, hdd16: d.hdd * 0.75, hdd18: d.hdd, cdd20: d.cdd * 1.8 + (i % 3) * 7, cdd22: d.cdd > 0 ? d.cdd * 1.4 + 25 : 0, cdd24: d.cdd }; return { ...r, kwh: 900 + 2 * r.hdd18 + 5 * r.cdd22 }; });
+  const m = fitBaseline(rows);
+  assert.equal(m.bases.cooling, 22);
+});
 test('AC-6 잡음이 크면 판정 보류', () => {
   const noise = [900, -700, 800, -900, 700, -800, 900, -600, 850, -750, 800, -900];
   const rows = dd.map((d, i) => ({ ...d, kwh: 1000 + 2 * d.hdd + 5 * d.cdd + noise[i] }));
   const m = fitBaseline(rows);
   assert.equal(m.verdict, 'hold');
   assert.match(m.reason, /CV\(RMSE\)/);
+});
+
+test('AC-10 절감 불확도: 잡음 큰 기준선에서 작은 절감은 판정 보류', () => {
+  assert.ok(fractionalSavingsUncertainty({ cvrmse: 0.03, n: 12, m: 12, savingRate: 0.10 }) < 0.5);
+  assert.ok(fractionalSavingsUncertainty({ cvrmse: 0.15, n: 12, m: 3, savingRate: 0.05 }) > 0.5);
+  const noise = [0.12, -0.12, 0.1, -0.1, 0.12, -0.12, 0.1, -0.1, 0.12, -0.12, 0.1, -0.1];
+  const rows = dd.map((d, i) => ({ ...d, kwh: (1000 + 2 * d.hdd + 5 * d.cdd) * (1 + noise[i]) }));
+  const m = fitBaseline(rows);
+  const post = dd.slice(6, 9).map(d => ({ ...d, kwh: 0.97 * (1000 + 2 * d.hdd + 5 * d.cdd) }));
+  assert.equal(verifySavings(m, post).verdict, 'hold');
 });
 
 test('AC-7 전후 검증: 예측보다 10% 적으면 절감률 ≈ 10%', () => {
